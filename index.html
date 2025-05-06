@@ -85,7 +85,19 @@
         <div class="mode-switch">
             <button onclick="switchMode('realtime')">实时模式</button>
             <button onclick="switchMode('query')">查询模式</button>
+            <button onclick="switchMode('route')">路线规划</button>
         </div>
+        <!-- 路线规划条件 -->
+        <div id="routeConditions" class="query-group">
+            <div class="query-item">
+                <select id="routeSelect">
+                    <option value="">请选择目的地</option>
+                    <!-- 路线规划模式激活时填充 -->
+                </select>
+            </div>
+            <button onclick="executeRoute()">开始规划</button>
+        </div>
+        
         <div id="queryConditions" class="query-group">
             <div class="query-item">
                 <input type="date" id="queryDate" placeholder="选择日期">
@@ -123,12 +135,13 @@
         // 新增全局变量存储AMap实例
         let AMapInstance;
         let allLocations = [];
+        let drivingService;
         
         function initMap() {
             AMapLoader.load({
                 key: "ad2454f78dd488ab4ebe4fbf69f840fc",
                 version: "2.0",
-                plugins: ['AMap.HeatMap', 'AMap.Marker']
+                plugins: ['AMap.HeatMap', 'AMap.Marker', 'AMap.Geolocation', 'AMap.Driving']
             }).then((AMap) => {
                 AMapInstance = AMap; // 存储AMap实例
                 map = new AMap.Map('map', {
@@ -156,14 +169,29 @@
         function switchMode(mode) {
             currentMode = mode;
             const queryGroup = document.getElementById('queryConditions');
+            const routeGroup = document.getElementById('routeConditions');
             if (mode === 'query') {
                 queryGroup.classList.add('active');
+                routeGroup.classList.remove('active');
                 clearInterval(refreshInterval); // 停止实时刷新
             } else {
                 queryGroup.classList.remove('active');
                 // 恢复实时刷新（原有代码修改）
                 refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
                 heatmap.setDataSet({data: generateHeatmapData(), max: 100});
+                routeGroup.classList.remove('active');
+            }
+            if (mode === 'route') {
+                // 关闭热力图刷新
+                clearInterval(refreshInterval);
+                queryGroup.classList.remove('active');
+                routeGroup.classList.add('active');
+                // 填充目的地下拉
+                const sel = document.getElementById('routeSelect');
+                sel.innerHTML = '<option value="">请选择目的地</option>';
+                allLocations.forEach(loc => {
+                    sel.innerHTML += `<option value="${loc.name}">${loc.name}</option>`;
+                });
             }
         }
 
