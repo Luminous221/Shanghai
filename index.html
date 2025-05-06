@@ -364,7 +364,7 @@
                 `${Math.floor(minutes/60)}小时${minutes%60 ? `${minutes%60}分钟` : ''}`;
         }
 
-        function generateHeatmapData(typeFilter = '全部') {
+        function generateHeatmapData() {
             // 这里可以模拟数据变化，实际应用中可以从服务器获取新数据
             return [
                { name: "外滩", lng: 121.4904, lat: 31.2415, value: Math.min(100, Math.floor(Math.random() * 120)) },
@@ -397,10 +397,7 @@
     { name: "衡山路酒吧街", lng: 121.4467, lat: 31.2045, value: Math.min(100, Math.floor(Math.random() * 120)) },
     { name: "上海电影博物馆", lng: 121.4389, lat: 31.2087, value: Math.min(100, Math.floor(Math.random() * 100)) },
     { name: "光启公园", lng: 121.4315, lat: 31.1978, value: Math.min(100, Math.floor(Math.random() * 100)) }
-            ].filter(item => {
-                const loc = locations.find(l => l.name === item.name);
-                return typeFilter === '全部' || loc.type === typeFilter;
-            }).map(item => ({
+            ].map(item => ({
                 lng: item.lng,
                 lat: item.lat,
                 count: item.value
