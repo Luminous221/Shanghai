@@ -381,6 +381,10 @@
                     }).open(map, marker.getPosition());
                 });
             });
+            // 初始化驾车服务
++            AMap.plugin('AMap.Driving', function(){
++                drivingService = new AMap.Driving({ map: map });
++            });
         }
 
         // 生成天气信息
@@ -463,6 +467,46 @@
 
         // 初始化地图
         initMap();
+        
+        // 执行路线规划
+        function executeRoute() {
+            const destName = document.getElementById('routeSelect').value;
+            if (!destName) {
+                alert('请先选择一个目的地');
+                return;
+            }
+            const dest = allLocations.find(l => l.name === destName);
+            if (!dest) {
+                alert('目的地未找到，请重试');
+                return;
+            }
+
+            // 获取用户定位
+            AMap.plugin('AMap.Geolocation', function() {
+                const geo = new AMap.Geolocation({
+                    enableHighAccuracy: true,
+                    timeout: 10000
+                });
+                geo.getCurrentPosition((status, result) => {
+                    if (status === 'complete') {
+                        const start = result.position;         // [lng, lat]
+                        const end = [dest.lng, dest.lat];
+
+                        // 发起驾车路线检索
+                        drivingService.search(start, end, (status, res) => {
+                            if (status === 'complete') {
+                                console.log('路线规划成功', res);
+                                // 地图上已由 drivingService 自动渲染
+                            } else {
+                                 alert('路线规划失败：' + res.info);
+                            }
+                        });
+                    } else {
+                        alert('获取当前位置失败：' + result.message);
+                    }
+                });
+            });
+        }
     </script>
 </body>
 </html>
