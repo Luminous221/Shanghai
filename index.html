@@ -122,6 +122,7 @@
         let refreshInterval; // 存储定时器
         // 新增全局变量存储AMap实例
         let AMapInstance;
+        let allLocations = [];
         
         function initMap() {
             AMapLoader.load({
@@ -169,19 +170,20 @@
         // 新增查询执行函数
         function executeQuery() {
             const selectedType = document.getElementById('tagSelect').value;
-            const filtered = allLocations
+            // 基于全局 allLocations 过滤并生成一次性热力图数据
+            const queryData = allLocations
                 .filter(loc => selectedType === '全部' || loc.type === selectedType)
                 .map(loc => ({
                     lng: loc.lng,
                     lat: loc.lat,
                     count: Math.min(100, Math.floor(Math.random() * 120))
                 }));
-            
+
+            // 切换（重新渲染）热力图
             heatmap.setDataSet({
-                data: filtered,
+                data: queryData,
                 max: 100
             });
-        }
         
         function initHeatmap(AMap) {
             // 热力图数据
@@ -307,7 +309,10 @@
                  photo: "https://ts1.tc.mm.bing.net/th/id/R-C.fe740385720f1b4dfc72fec4ea943da3?rik=RjOgOX7%2fLwV0Xg&riu=http%3a%2f%2fyouimg1.c-ctrip.com%2ftarget%2ffd%2ftg%2fg6%2fM06%2f3D%2f88%2fCggYslbjwFqAUCeMAAQ3t2hE4rQ601.jpg&ehk=gYiU08pFaf%2f3xp53aJhUPA4%2fAxAoFW%2bwVkVWmKvWZgI%3d&risl=&pid=ImgRaw&r=0",
                  desc: "明代科学家徐光启墓园改建的城市公园，欧洲几何园林与中式碑廊相映，融合科学精神与古典美学的市民休憩地。"}
             ];
-
+            
+            // 保存到全局，供查询时使用
+            allLocations = locations;
+            
             locations.forEach(loc => {
                 const iconUrl = icons[loc.type] || icons["地标景点"];
                 const content = `<div class="custom-marker" style="background-image: url('${iconUrl}')"></div>`;
