@@ -235,7 +235,7 @@
                     0.6: 'cyan',
                     0.7: 'lime',
                     0.8: 'yellow',
-                    1.0: 'red
+                    1.0: 'red'
                 },
                 zooms: [3, 18]
             });
@@ -279,57 +279,7 @@
             });
         }
 
-        // 修改标记点击事件
-        function initMarkers(AMap, data = locations) {
-            // 仅清除覆盖物
-            map.clearMapOverlays();
-            
-            data.forEach(loc => {
-                const iconUrl = icons[loc.type] || icons["地标景点"];
-                const content = `<div class="custom-marker" style="background-image: url('${iconUrl}')"></div>`;
-                const marker = new AMap.Marker({
-                    position: [loc.lng, loc.lat],
-                    content: content,
-                    anchor: 'bottom-center',
-                    title: loc.name,
-                });
-                marker.setMap(map);
 
-                marker.on('click', () => {
-                    AMap.Popup && AMap.Popup.closeAll();
-                    
-                    // 生成天气信息
-                    const weatherData = generateWeather();
-                    
-                    // 生成游玩时间
-                    const playTime = generatePlayTime();
-                    
-                    // 弹窗内容
-                    const popupContent = `
-                        <img src="${loc.photo}" class="info-image" 
-                             onerror="this.src='https://dummyimage.com/280x160/eee/999'">
-                        <div class="info-title">${loc.name}</div>
-                        <div>类型：${loc.type}</div>
-                        <div class="info-desc">${loc.desc}</div>
-                        <div class="info-weather">
-                            ${weatherData.icon} ${weatherData.text} | 温度：${weatherData.temp}℃
-                        </div>
-                        <div>预计游玩：${playTime}</div>
-                    `;
-
-                    new AMap.InfoWindow({
-                        content: popupContent,
-                        offset: new AMap.Pixel(0, -40),
-                        closeWhenClickMap: true
-                    }).open(map, marker.getPosition());
-                    
-                    // +++ 新增路线规划功能 +++
-                    if(currentMode === 'route' && currentPosition) {
-                        showRoute(AMap, [loc.lng, loc.lat], loc.name);
-                    }
-                });
-            });
-        }
 
         // +++ 新增路线规划函数 +++
         function showRoute(AMap, target) {
@@ -523,6 +473,7 @@
                         offset: new AMap.Pixel(0, -40),
                         closeWhenClickMap: true
                     }).open(map, marker.getPosition());
+                    
                 });
             });
         }
