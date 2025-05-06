@@ -46,7 +46,7 @@
             color: #1890ff;
             font-weight: bold;
         }
-        /* +++ 新增样式 +++ */
+        /* +++ 新增模式切换样式 +++ */
         .mode-switch {
             position: absolute;
             top: 20px;
@@ -56,7 +56,10 @@
             padding: 10px;
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex;
+            gap: 10px;
         }
+        /* +++ 新增控制面板样式 +++ */
         .control-panel {
             position: absolute;
             top: 70px;
@@ -67,7 +70,19 @@
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.3);
             width: 300px;
-            display: none; /* 默认隐藏 */
+            display: none;
+        }
+        /* +++ 新增路线信息样式 +++ */
+        .route-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            max-width: 300px;
+            display: none;
         }
         
     </style>
@@ -77,6 +92,7 @@
     <div class="mode-switch">
         <button onclick="switchMode('realtime')">实时热力图模式</button>
         <button onclick="switchMode('query')">查询模式</button>
+        <button onclick="switchMode('route')">路线规划</button>
     </div>
     
     <!-- +++ 新增查询控制面板 +++ -->
@@ -106,12 +122,19 @@
         <button onclick="executeQuery()">开始查询</button>
     </div>
     
+    <!-- +++ 新增路线信息面板 +++ -->
+    <div class="route-info" id="routeInfo">
+        <div id="routeDetails"></div>
+        <button onclick="document.getElementById('routeInfo').style.display='none'">关闭</button>
+    </div>
+    
     <div id="map"></div>
     <script>
         // +++ 新增全局变量 +++
         let currentMode = 'realtime';
         let currentPosition = null;
         let currentRoute = null;
+        let queryHeatmap = null;  // 查询模式专用热力图
         let refreshInterval = null;
         
         // 全局变量存储地图和热力图实例
@@ -150,6 +173,9 @@
                     enableHighAccuracy: true,
                     timeout: 10000
                 }));
+
+                 // 启动实时热力图
+                startRealtimeHeatmap(AMap);
             });
             
         }
@@ -158,50 +184,79 @@
         // +++ 新增模式切换函数 +++
         function switchMode(mode) {
             currentMode = mode;
-            document.getElementById('queryPanel').style.display = 
-                mode === 'query' ? 'block' : 'none';
+            // 隐藏所有面板
+            document.querySelectorAll('.control-panel').forEach(p => p.style.display = 'none');
+            document.getElementById('routeInfo').style.display = 'none';
             
-            // 清除原有数据
-            map.clearMap();
-            if(refreshInterval) clearInterval(refreshInterval);
+            // 清理临时元素
+            if(currentRoute) currentRoute.setMap(null);
+            if(queryHeatmap) queryHeatmap.setMap(null);
 
-            if(mode === 'realtime') {
-                // 恢复实时模式
-                initMarkers(AMap);
-                refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
-            } else {
-                // 停止热力图刷新
-                heatmap.setMap(null);
+            switch(mode) {
+                case 'realtime':
+                    startRealtimeHeatmap(AMap);
+                    break;
+                case 'query':
+                    document.getElementById('queryPanel').style.display = 'block';
+                    initMarkers(AMap, locations);  // 显示全部标记
+                    break;
+                case 'route':
+                    initMarkers(AMap, locations);
+                    document.getElementById('routeInfo').style.display = 'block';
+                    break;
             }
         }
 
-        // +++ 新增查询执行函数 +++
+        // +++ 新增实时热力图控制函数 +++
+        function startRealtimeHeatmap(AMap) {
+            if(refreshInterval) clearInterval(refreshInterval);
+            initHeatmap(AMap);
+            refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
+            initMarkers(AMap, locations);
+        }
+
+       // 修改查询执行函数
         function executeQuery() {
             const selectedTypes = Array.from(
                 document.getElementById('queryType').selectedOptions
             ).map(opt => opt.value);
+
 
             // 过滤景点
             const filtered = locations.filter(loc => 
                 selectedTypes.includes(loc.type)
             );
 
-            // 生成随机热力图数据
-            const newHeatmapData = filtered.map(item => ({
+            // +++ 生成查询模式热力图 +++
+            if(queryHeatmap) queryHeatmap.setMap(null);
+            queryHeatmap = new AMap.HeatMap(map, {
+                radius: 40,
+                opacity: [0.6, 0.8],
+                gradient: {                   
+                    0.4: 'blue',
+                    0.6: 'cyan',
+                    0.7: 'lime',
+                    0.8: 'yellow',
+                    1.0: 'red
+                },
+                zooms: [3, 18]
+            });
+            
+            const newData = filtered.map(item => ({
                 lng: item.lng,
                 lat: item.lat,
                 count: Math.floor(Math.random() * 100)
             }));
-
-            // 更新热力图
-            heatmap.setDataSet({
-                data: newHeatmapData,
+            
+            queryHeatmap.setDataSet({
+                data: newData,
                 max: 100
             });
 
-            // 重新绘制标记
+            // 更新标记
             initMarkers(AMap, filtered);
         }
+
 
         // +++ 新增定位函数 +++
         function getLocation() {
@@ -226,17 +281,57 @@
             });
         }
 
-        // 修改标记点击事件（新增路线规划）
+        // 修改标记点击事件
         function initMarkers(AMap, data = locations) {
-            // 原有标记创建逻辑...
+            // 清除旧标记
+            map.clearMap();
+            
+            data.forEach(loc => {
+                const iconUrl = icons[loc.type] || icons["地标景点"];
+                const content = `<div class="custom-marker" style="background-image: url('${iconUrl}')"></div>`;
+                const marker = new AMap.Marker({
+                    position: [loc.lng, loc.lat],
+                    content: content,
+                    anchor: 'bottom-center',
+                    title: loc.name,
+                });
+                marker.setMap(map);
 
-            marker.on('click', () => {
-                // 原有弹窗逻辑...
+                marker.on('click', () => {
+                    AMap.Popup && AMap.Popup.closeAll();
+                    
+                    // 生成天气信息
+                    const weatherData = generateWeather();
+                    
+                    // 生成游玩时间
+                    const playTime = generatePlayTime();
+                    
+                    // 弹窗内容
+                    const popupContent = `
+                        <img src="${loc.photo}" class="info-image" 
+                             onerror="this.src='https://dummyimage.com/280x160/eee/999'">
+                        <div class="info-title">${loc.name}</div>
+                        <div>类型：${loc.type}</div>
+                        <div class="info-desc">${loc.desc}</div>
+                        <div class="info-weather">
+                            ${weatherData.icon} ${weatherData.text} | 温度：${weatherData.temp}℃
+                        </div>
+                        <div>预计游玩：${playTime}</div>
+                    `;
 
-                // +++ 新增路线规划 +++
-                if(currentMode === 'query' && currentPosition) {
-                    showRoute(AMap, [loc.lng, loc.lat]);
-                }
+                    new AMap.InfoWindow({
+                        content: popupContent,
+                        offset: new AMap.Pixel(0, -40),
+                        closeWhenClickMap: true
+                    }).open(map, marker.getPosition());
+                });
+            });
+
+                    // +++ 新增路线规划功能 +++
+                    if(currentMode === 'route' && currentPosition) {
+                        showRoute(AMap, [loc.lng, loc.lat], loc.name);
+                    }
+                });
             });
         }
 
@@ -253,10 +348,17 @@
                 new AMap.LngLat(...currentPosition),
                 new AMap.LngLat(...target),
                 (status, result) => {
-                    if (status === 'complete') {
+                        if (status === 'complete') {
+                        const plan = result.plans[0];
+                        document.getElementById('routeDetails').innerHTML = `
+                            <h4>前往${name}</h4>
+                            <p>距离：${(plan.distance/1000).toFixed(1)}公里</p>
+                            <p>预计耗时：${plan.duration}分钟</p>
+                            <p>路径：${plan.steps.map(s => s.instruction).join(' → ')}</p>
+                        `;
                         currentRoute = new AMap.TransferRoute({
                             map: map,
-                            plan: result.plans[0]
+                            plan: plan
                         });
                     }
                 }
