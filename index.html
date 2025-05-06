@@ -324,9 +324,7 @@
                         offset: new AMap.Pixel(0, -40),
                         closeWhenClickMap: true
                     }).open(map, marker.getPosition());
-                });
-            });
-
+                    
                     // +++ 新增路线规划功能 +++
                     if(currentMode === 'route' && currentPosition) {
                         showRoute(AMap, [loc.lng, loc.lat], loc.name);
