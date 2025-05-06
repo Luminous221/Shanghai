@@ -51,7 +51,7 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            z-index: 1000;
+            z-index: 1;
             background: white;
             padding: 10px;
             border-radius: 8px;
@@ -64,7 +64,7 @@
             position: absolute;
             top: 70px;
             left: 20px;
-            z-index: 1000;
+            z-index: 1;
             background: white;
             padding: 15px;
             border-radius: 8px;
@@ -163,21 +163,19 @@
                 
                 // 启动定时刷新
                 setInterval(() => refreshHeatmap(AMap), 5000);
-
                 
-            }).catch(e => {
-                console.error("地图加载失败:", e);
-
                 // +++ 新增定位控件 +++
                 map.addControl(new AMap.Geolocation({
                     enableHighAccuracy: true,
                     timeout: 10000
                 }));
-
+                
                  // 启动实时热力图
                 startRealtimeHeatmap(AMap);
+                
+            }).catch(e => {
+                console.error("地图加载失败:", e);
             });
-            
         }
 
         
@@ -283,8 +281,8 @@
 
         // 修改标记点击事件
         function initMarkers(AMap, data = locations) {
-            // 清除旧标记
-            map.clearMap();
+            // 仅清除覆盖物
+            map.clearMapOverlays();
             
             data.forEach(loc => {
                 const iconUrl = icons[loc.type] || icons["地标景点"];
