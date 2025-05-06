@@ -46,108 +46,86 @@
             color: #1890ff;
             font-weight: bold;
         }
-        /* +++ 新增模式切换样式 +++ */
+        
+        /* 新增控制栏样式 */
+        #controlBar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 999;
+            background: rgba(255,255,255,0.9);
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
         .mode-switch {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1;
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            display: flex;
-            gap: 10px;
+            margin-bottom: 10px;
         }
-        /* +++ 新增控制面板样式 +++ */
-        .control-panel {
-            position: absolute;
-            top: 70px;
-            left: 20px;
-            z-index: 1;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            width: 300px;
-            display: none;
+        .query-group {
+            display: none; /* 默认隐藏查询条件 */
+            margin-top: 8px;
         }
-        /* +++ 新增路线信息样式 +++ */
-        .route-info {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            max-width: 300px;
-            display: none;
+        .query-group.active {
+            display: block;
+        }
+        .query-item {
+            margin: 6px 0;
+        }
+        select, button {
+            padding: 6px;
+            margin: 2px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
         
     </style>
 </head>
 <body>
-    <!-- +++ 新增模式切换面板 +++ -->
-    <div class="mode-switch">
-        <button onclick="switchMode('realtime')">实时热力图模式</button>
-        <button onclick="switchMode('query')">查询模式</button>
-        <button onclick="switchMode('route')">路线规划</button>
-    </div>
-    
-    <!-- +++ 新增查询控制面板 +++ -->
-    <div class="control-panel" id="queryPanel">
-        <div class="form-group">
-            <label>选择日期：</label>
-            <input type="date" id="queryDate">
+    <div id="controlBar">
+        <div class="mode-switch">
+            <button onclick="switchMode('realtime')">实时模式</button>
+            <button onclick="switchMode('query')">查询模式</button>
         </div>
-        <div class="form-group">
-            <label>选择时间段：</label>
-            <select id="queryTime">
-                <option value="8:00-10:00">8:00-10:00</option>
-                <option value="10:00-12:00">10:00-12:00</option>
-                <option value="13:00-15:00">13:00-15:00</option>
-                <option value="15:00-17:00">15:00-17:00</option>
-            </select>
+        <div id="queryConditions" class="query-group">
+            <div class="query-item">
+                <input type="date" id="queryDate" placeholder="选择日期">
+            </div>
+            <div class="query-item">
+                <select id="timeRange">
+                    <option value="8-10">8:00-10:00</option>
+                    <option value="10-12">10:00-12:00</option>
+                    <option value="12-14">12:00-14:00</option>
+                    <option value="14-16">14:00-16:00</option>
+                    <option value="16-18">16:00-18:00</option>
+                </select>
+            </div>
+            <div class="query-item">
+                <select id="tagSelect">
+                    <option value="全部">全部类型</option>
+                    <option value="地标景点">地标景点</option>
+                    <option value="商业休闲">商业休闲</option>
+                    <option value="文化历史">文化历史</option>
+                    <option value="公共空间">公共空间</option>
+                </select>
+            </div>
+            <button onclick="executeQuery()">查询</button>
         </div>
-        <div class="form-group">
-            <label>选择类型：</label>
-            <select id="queryType" multiple>
-                <option value="地标景点">地标景点</option>
-                <option value="文化历史">文化历史</option>
-                <option value="商业休闲">商业休闲</option>
-                <option value="公共空间">公共空间</option>
-            </select>
-        </div>
-        <button onclick="executeQuery()">开始查询</button>
     </div>
-    
-    <!-- +++ 新增路线信息面板 +++ -->
-    <div class="route-info" id="routeInfo">
-        <div id="routeDetails"></div>
-        <button onclick="document.getElementById('routeInfo').style.display='none'">关闭</button>
-    </div>
-    
+
     <div id="map"></div>
     <script>
-        // +++ 新增全局变量 +++
-        let currentMode = 'realtime';
-        let currentPosition = null;
-        let currentRoute = null;
-        let queryHeatmap = null;  // 查询模式专用热力图
-        let refreshInterval = null;
-        
         // 全局变量存储地图和热力图实例
         let map, heatmap;
         
-        async function initMap() {
-            // +++ 新增定位获取 +++
-            await getLocation();
-            
+        // 新增全局变量
+        let currentMode = 'realtime'; // 当前模式
+        let refreshInterval; // 存储定时器
+        
+        function initMap() {
             AMapLoader.load({
                 key: "ad2454f78dd488ab4ebe4fbf69f840fc",
                 version: "2.0",
-                plugins: ['AMap.HeatMap', 'AMap.Marker', 'AMap.Transfer']
+                plugins: ['AMap.HeatMap', 'AMap.Marker']
             }).then((AMap) => {
                 map = new AMap.Map('map', {
                     viewMode: '2D',
@@ -162,153 +140,37 @@
                 initMarkers(AMap);
                 
                 // 启动定时刷新
-                setInterval(() => refreshHeatmap(AMap), 5000);
-                
-                // +++ 新增定位控件 +++
-                map.addControl(new AMap.Geolocation({
-                    enableHighAccuracy: true,
-                    timeout: 10000
-                }));
-                
-                 // 启动实时热力图
-                startRealtimeHeatmap(AMap);
-                
+                // 修改定时器存储方式（原有代码修改）
+                refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
+
             }).catch(e => {
                 console.error("地图加载失败:", e);
             });
         }
 
-        
-        // +++ 新增模式切换函数 +++
+         // 新增模式切换函数
         function switchMode(mode) {
             currentMode = mode;
-            // 隐藏所有面板
-            document.querySelectorAll('.control-panel').forEach(p => p.style.display = 'none');
-            document.getElementById('routeInfo').style.display = 'none';
-            
-            // 清理临时元素
-            if(currentRoute) currentRoute.setMap(null);
-            if(queryHeatmap) queryHeatmap.setMap(null);
-
-            switch(mode) {
-                case 'realtime':
-                    startRealtimeHeatmap(AMap);
-                    break;
-                case 'query':
-                    document.getElementById('queryPanel').style.display = 'block';
-                    initMarkers(AMap, locations);  // 显示全部标记
-                    break;
-                case 'route':
-                    initMarkers(AMap, locations);
-                    document.getElementById('routeInfo').style.display = 'block';
-                    break;
+            const queryGroup = document.getElementById('queryConditions');
+            if (mode === 'query') {
+                queryGroup.classList.add('active');
+                clearInterval(refreshInterval); // 停止实时刷新
+            } else {
+                queryGroup.classList.remove('active');
+                // 恢复实时刷新（原有代码修改）
+                refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
+                heatmap.setDataSet({data: generateHeatmapData(), max: 100});
             }
         }
 
-        // +++ 新增实时热力图控制函数 +++
-        function startRealtimeHeatmap(AMap) {
-            if(refreshInterval) clearInterval(refreshInterval);
-            initHeatmap(AMap);
-            refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
-            initMarkers(AMap, locations);
-        }
-
-       // 修改查询执行函数
+        // 新增查询执行函数
         function executeQuery() {
-            const selectedTypes = Array.from(
-                document.getElementById('queryType').selectedOptions
-            ).map(opt => opt.value);
-
-
-            // 过滤景点
-            const filtered = locations.filter(loc => 
-                selectedTypes.includes(loc.type)
-            );
-
-            // +++ 生成查询模式热力图 +++
-            if(queryHeatmap) queryHeatmap.setMap(null);
-            queryHeatmap = new AMap.HeatMap(map, {
-                radius: 40,
-                opacity: [0.6, 0.8],
-                gradient: {                   
-                    0.4: 'blue',
-                    0.6: 'cyan',
-                    0.7: 'lime',
-                    0.8: 'yellow',
-                    1.0: 'red'
-                },
-                zooms: [3, 18]
-            });
-            
-            const newData = filtered.map(item => ({
-                lng: item.lng,
-                lat: item.lat,
-                count: Math.floor(Math.random() * 100)
-            }));
-            
-            queryHeatmap.setDataSet({
-                data: newData,
+            const selectedType = document.getElementById('tagSelect').value;
+            const filteredData = generateHeatmapData(selectedType);
+            heatmap.setDataSet({
+                data: filteredData,
                 max: 100
             });
-
-            // 更新标记
-            initMarkers(AMap, filtered);
-        }
-
-
-        // +++ 新增定位函数 +++
-        function getLocation() {
-            return new Promise((resolve, reject) => {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        position => {
-                            currentPosition = [
-                                position.coords.longitude,
-                                position.coords.latitude
-                            ];
-                            resolve();
-                        },
-                        error => {
-                            console.error("定位失败:", error);
-                            resolve(); // 仍继续初始化
-                        }
-                    );
-                } else {
-                    resolve();
-                }
-            });
-        }
-
-
-
-        // +++ 新增路线规划函数 +++
-        function showRoute(AMap, target) {
-            if(currentRoute) currentRoute.setMap(null);
-
-            const transfer = new AMap.Transfer({
-                map: map,
-                policy: AMap.TransferPolicy.LEAST_TIME
-            });
-
-            transfer.search(
-                new AMap.LngLat(...currentPosition),
-                new AMap.LngLat(...target),
-                (status, result) => {
-                        if (status === 'complete') {
-                        const plan = result.plans[0];
-                        document.getElementById('routeDetails').innerHTML = `
-                            <h4>前往${name}</h4>
-                            <p>距离：${(plan.distance/1000).toFixed(1)}公里</p>
-                            <p>预计耗时：${plan.duration}分钟</p>
-                            <p>路径：${plan.steps.map(s => s.instruction).join(' → ')}</p>
-                        `;
-                        currentRoute = new AMap.TransferRoute({
-                            map: map,
-                            plan: plan
-                        });
-                    }
-                }
-            );
         }
         
         function initHeatmap(AMap) {
@@ -473,7 +335,6 @@
                         offset: new AMap.Pixel(0, -40),
                         closeWhenClickMap: true
                     }).open(map, marker.getPosition());
-                    
                 });
             });
         }
@@ -503,7 +364,7 @@
                 `${Math.floor(minutes/60)}小时${minutes%60 ? `${minutes%60}分钟` : ''}`;
         }
 
-        function generateHeatmapData() {
+        function generateHeatmapData(typeFilter = '全部') {
             // 这里可以模拟数据变化，实际应用中可以从服务器获取新数据
             return [
                { name: "外滩", lng: 121.4904, lat: 31.2415, value: Math.min(100, Math.floor(Math.random() * 120)) },
@@ -536,7 +397,10 @@
     { name: "衡山路酒吧街", lng: 121.4467, lat: 31.2045, value: Math.min(100, Math.floor(Math.random() * 120)) },
     { name: "上海电影博物馆", lng: 121.4389, lat: 31.2087, value: Math.min(100, Math.floor(Math.random() * 100)) },
     { name: "光启公园", lng: 121.4315, lat: 31.1978, value: Math.min(100, Math.floor(Math.random() * 100)) }
-            ].map(item => ({
+            ].filter(item => {
+                const loc = locations.find(l => l.name === item.name);
+                return typeFilter === '全部' || loc.type === typeFilter;
+            }).map(item => ({
                 lng: item.lng,
                 lat: item.lat,
                 count: item.value
