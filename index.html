@@ -504,7 +504,7 @@
                 showButton: false
               });
 
-                // ▼▼▼▼▼ 添加事件监听器 ▼▼▼▼▼
+                // 添加事件监听器
             geo.on('complete', (result) => {
                 resolve({
                   lng: result.position.lng,
@@ -518,17 +518,7 @@
               });
 
                 
-              geo.getCurrentPosition((status, result) => {
-                if (status === 'complete') {
-                  resolve({
-                    lng: result.position.lng,
-                    lat: result.position.lat,
-                    address: result.formattedAddress
-                  });
-                } else {
-                  reject(`定位失败：${result.message}`);
-                }
-              });
+              geo.getCurrentPosition();
             });
           });
         }
@@ -563,37 +553,42 @@
                 }
               });
         
-            // ▼▼▼▼▼ 强制清除旧路线 ▼▼▼▼▼
+            //强制清除旧路线
             map.remove(map.getAllOverlays('polyline'));
             
             const start = [Number(userPos.lng), Number(userPos.lat)];
             const end = [Number(dest.lng), Number(dest.lat)];
         
-            // ▼▼▼▼▼ 重构路线规划逻辑 ▼▼▼▼▼
-            drivingService.search(start, end, (status, result) => {
-              if (status === 'complete') {
-                if (result.routes && result.routes.length > 0) {
-                  const path = result.routes[0].steps.flatMap(step => step.path);
-                  
-                  new AMapInstance.Polyline({
-                    path: path,
-                    strokeColor: "#1890ff",
-                    strokeWeight: 6,
-                    map: map
-                  });
-                  
-                  map.setFitView([start, end]);
-                  console.log('路线绘制成功', path);
+            //使用Promise包装路线规划
+            await new Promise((resolve, reject) => {
+              drivingService.search(start, end, (status, result) => {
+                if (status === 'complete') {
+                  if (result.routes && result.routes.length > 0) {
+                    const path = result.routes[0].steps.flatMap(step => step.path);
+                    
+                    // 绘制新路线
+                    new AMapInstance.Polyline({
+                      path: path,
+                      strokeColor: "#1890ff",
+                      strokeWeight: 6,
+                      map: map
+                    });
+                    
+                    // 调整地图视野
+                    map.setFitView([start, end], { padding: [100, 100, 100, 100] });
+                    console.log('路线规划成功', path);
+                    resolve();
+                  } else {
+                    reject('未找到可行路线');
+                  }
                 } else {
-                  alert('未找到可行路线');
+                  reject(`路线规划失败：${result.info}`);
                 }
-              } else {
-                alert(`路线规划失败：${result.info}`);
-              }
+              });
             });
         
           } catch (err) {
-            alert(err.message.includes('用户取消') ? '已取消规划' : `错误：${err.message}`);
+            alert(typeof err === 'string' ? err : `错误：${err.message}`);
           }
         }
     </script>
