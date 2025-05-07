@@ -496,14 +496,28 @@
               reject('地图未初始化');
               return;
             }
-        
+              
             AMapInstance.plugin('AMap.Geolocation', function() {
               const geo = new AMapInstance.Geolocation({
                 enableHighAccuracy: true,
                 timeout: 15000,
                 showButton: false
               });
+
+                // ▼▼▼▼▼ 添加事件监听器 ▼▼▼▼▼
+            geo.on('complete', (result) => {
+                resolve({
+                  lng: result.position.lng,
+                  lat: result.position.lat,
+                  address: result.formattedAddress || "未知位置"
+                });
+              });
         
+              geo.on('error', (err) => {
+                reject(`定位失败：${err.message}`);
+              });
+
+                
               geo.getCurrentPosition((status, result) => {
                 if (status === 'complete') {
                   resolve({
@@ -527,9 +541,6 @@
             return;
           }
         
-          // 清除已有路线
-          if (drivingService) drivingService.clear();
-        
           const dest = allLocations.find(l => l.name === destName);
           if (!dest) {
             alert('目的地未找到，请重试');
@@ -545,40 +556,44 @@
                   return { 
                     lng: 121.4761, 
                     lat: 31.2328,
-                    address: "人民广场（默认起点）"
+                    address: "人民广场"
                   };
                 } else {
                   throw new Error('用户取消');
                 }
               });
         
-            // 路线规划参数
+            // ▼▼▼▼▼ 强制清除旧路线 ▼▼▼▼▼
+            map.remove(map.getAllOverlays('polyline'));
+            
             const start = [Number(userPos.lng), Number(userPos.lat)];
             const end = [Number(dest.lng), Number(dest.lat)];
-
-            drivingService.search(start, end, {
-              waypoints: [],
-              ferry: 1
-            }, (status, res) => {
+        
+            // ▼▼▼▼▼ 重构路线规划逻辑 ▼▼▼▼▼
+            drivingService.search(start, end, (status, result) => {
               if (status === 'complete') {
-                console.log('路线规划成功', res);
-                drivingService.setPolicy(AMap.DrivingPolicy.LEAST_TIME);
-                drivingService.on('complete', function(result) {
-                  const path = result.routes[0].steps.map(step => step.path).flat();
-                  new AMap.Polyline({
+                if (result.routes && result.routes.length > 0) {
+                  const path = result.routes[0].steps.flatMap(step => step.path);
+                  
+                  new AMapInstance.Polyline({
                     path: path,
                     strokeColor: "#1890ff",
                     strokeWeight: 6,
                     map: map
                   });
+                  
                   map.setFitView([start, end]);
-                });
+                  console.log('路线绘制成功', path);
+                } else {
+                  alert('未找到可行路线');
+                }
               } else {
-                alert('路线规划失败：' + res.info);
+                alert(`路线规划失败：${result.info}`);
               }
             });
+        
           } catch (err) {
-            alert(err === '用户取消' ? '已取消规划' : `路线规划失败：${err}`);
+            alert(err.message.includes('用户取消') ? '已取消规划' : `错误：${err.message}`);
           }
         }
     </script>
