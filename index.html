@@ -500,7 +500,7 @@
             AMapInstance.plugin('AMap.Geolocation', function() {
               const geo = new AMapInstance.Geolocation({
                 enableHighAccuracy: true,
-                timeout: 10000,
+                timeout: 15000,
                 showButton: false
               });
         
@@ -537,20 +537,24 @@
           }
 
           try {
-            // 获取用户位置（新增）
             const userPos = await getUserLocation()
               .catch(async (err) => {
-                // 定位失败时使用上海中心坐标
                 console.warn(err);
                 const confirmUseDefault = confirm('定位失败，是否使用默认起点（人民广场）？');
-                return confirmUseDefault ? 
-                  { lng: 121.4761, lat: 31.2328 } : 
-                  Promise.reject('用户取消');
+                if (confirmUseDefault) {
+                  return { 
+                    lng: 121.4761, 
+                    lat: 31.2328,
+                    address: "人民广场（默认起点）"
+                  };
+                } else {
+                  throw new Error('用户取消');
+                }
               });
         
             // 路线规划参数
-            const start = [userPos.lng, userPos.lat];
-            const end = [dest.lng, dest.lat];
+            const start = [Number(userPos.lng), Number(userPos.lat)];
+            const end = [Number(dest.lng), Number(dest.lat)];
 
             drivingService.search(start, end, {
               waypoints: [],
@@ -567,7 +571,7 @@
                     strokeWeight: 6,
                     map: map
                   });
-                  map.setFitView();
+                  map.setFitView([start, end]);
                 });
               } else {
                 alert('路线规划失败：' + res.info);
