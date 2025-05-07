@@ -77,6 +77,24 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        /* 路线规划提示样式 */
+        .amap-driving-route-marker {
+          background: #1890ff;
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+        }
+        
+        /* 实时路况样式 */
+        .amap-layers path[stroke="#4dc1a9"] {
+          stroke: #52c41a !important; /* 畅通-绿色 */
+        }
+        .amap-layers path[stroke="#f9c51a"] {
+          stroke: #faad14 !important; /* 缓行-橙色 */
+        }
+        .amap-layers path[stroke="#e95f5f"] {
+          stroke: #f5222d !important; /* 拥堵-红色 */
+        }
         
     </style>
 </head>
@@ -383,7 +401,11 @@
             });
             // 初始化驾车服务
             AMap.plugin('AMap.Driving', function(){
-                drivingService = new AMap.Driving({ map: map });
+                drivingService = new AMap.Driving({ 
+                    map: map,
+                    policy: AMap.DrivingPolicy.LEAST_TIME, // 添加路线策略：最少时间
+                    showTraffic: true // 显示实时路况
+                });
             });
         }
 
@@ -468,44 +490,63 @@
         // 初始化地图
         initMap();
         
-        // 执行路线规划
-        function executeRoute() {
-            const destName = document.getElementById('routeSelect').value;
-            if (!destName) {
-                alert('请先选择一个目的地');
-                return;
-            }
-            const dest = allLocations.find(l => l.name === destName);
-            if (!dest) {
-                alert('目的地未找到，请重试');
-                return;
-            }
+        // 修改后的 executeRoute 函数
+        async function executeRoute() {
+          const destName = document.getElementById('routeSelect').value;
+          if (!destName) {
+            alert('请先选择一个目的地');
+            return;
+          }
+        
+          // 清除已有路线
+          if (drivingService) drivingService.clear();
+        
+          const dest = allLocations.find(l => l.name === destName);
+          if (!dest) {
+            alert('目的地未找到，请重试');
+            return;
+          }
 
-            // 获取用户定位
-            AMap.plugin('AMap.Geolocation', function() {
-                const geo = new AMap.Geolocation({
-                    enableHighAccuracy: true,
-                    timeout: 10000
-                });
-                geo.getCurrentPosition((status, result) => {
-                    if (status === 'complete') {
-                        const start = result.position;         // [lng, lat]
-                        const end = [dest.lng, dest.lat];
+          try {
+            // 获取用户位置（新增）
+            const userPos = await getUserLocation()
+              .catch(async (err) => {
+                // 定位失败时使用上海中心坐标
+                console.warn(err);
+                const confirmUseDefault = confirm('定位失败，是否使用默认起点（人民广场）？');
+                return confirmUseDefault ? 
+                  { lng: 121.4761, lat: 31.2328 } : 
+                  Promise.reject('用户取消');
+              });
+        
+            // 路线规划参数
+            const start = [userPos.lng, userPos.lat];
+            const end = [dest.lng, dest.lat];
 
-                        // 发起驾车路线检索
-                        drivingService.search(start, end, (status, res) => {
-                            if (status === 'complete') {
-                                console.log('路线规划成功', res);
-                                // 地图上已由 drivingService 自动渲染
-                            } else {
-                                 alert('路线规划失败：' + res.info);
-                            }
-                        });
-                    } else {
-                        alert('获取当前位置失败：' + result.message);
-                    }
+            drivingService.search(start, end, {
+              waypoints: [],
+              ferry: 1
+            }, (status, res) => {
+              if (status === 'complete') {
+                console.log('路线规划成功', res);
+                drivingService.setPolicy(AMap.DrivingPolicy.LEAST_TIME);
+                drivingService.on('complete', function(result) {
+                  const path = result.routes[0].steps.map(step => step.path).flat();
+                  new AMap.Polyline({
+                    path: path,
+                    strokeColor: "#1890ff",
+                    strokeWeight: 6,
+                    map: map
+                  });
+                  map.setFitView();
                 });
+              } else {
+                alert('路线规划失败：' + res.info);
+              }
             });
+          } catch (err) {
+            alert(err === '用户取消' ? '已取消规划' : `路线规划失败：${err}`);
+          }
         }
     </script>
 </body>
