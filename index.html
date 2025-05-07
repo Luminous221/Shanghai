@@ -553,8 +553,11 @@
                 }
               });
         
-            //强制清除旧路线
-            map.remove(map.getAllOverlays('polyline'));
+            // 强制清除旧路线
+            const prevRoutes = map.getAllOverlays('polyline');
+            if (prevRoutes && prevRoutes.length) {
+              prevRoutes.forEach(route => map.remove(route));
+            }
             
             const start = [Number(userPos.lng), Number(userPos.lat)];
             const end = [Number(dest.lng), Number(dest.lat)];
@@ -567,15 +570,15 @@
                     const path = result.routes[0].steps.flatMap(step => step.path);
                     
                     // 绘制新路线
-                    new AMapInstance.Polyline({
+                    const polyline = new AMapInstance.Polyline({
                       path: path,
                       strokeColor: "#1890ff",
-                      strokeWeight: 6,
-                      map: map
+                      strokeWeight: 6
                     });
+                    polyline.setMap(map);
                     
                     // 调整地图视野
-                    map.setFitView([start, end], { padding: [100, 100, 100, 100] });
+                    map.setFitView([polyline], { padding: [100, 100, 100, 100] });
                     console.log('路线规划成功', path);
                     resolve();
                   } else {
