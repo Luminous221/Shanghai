@@ -157,7 +157,7 @@
         
         function initMap() {
             AMapLoader.load({
-                key: "ad2454f78dd488ab4ebe4fbf69f840fc",
+                key: "241041fb1dbe22bed3f34a4b57c6b36e",
                 version: "2.0",
                 plugins: ['AMap.HeatMap', 'AMap.Marker', 'AMap.Geolocation', 'AMap.Driving']
             }).then((AMap) => {
@@ -167,7 +167,11 @@
                     center: [121.4737, 31.2304],
                     zoom: 12
                 });
-
+                
+                // 新增：初始化地理定位插件
+                  const geo = new AMap.Geolocation(); 
+                  map.addControl(geo);
+                
                 // 初始化热力图
                 initHeatmap(AMap);
                 
@@ -176,8 +180,15 @@
                 
                 // 启动定时刷新
                 // 修改定时器存储方式（原有代码修改）
-                refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
-
+                refreshInterval = setInterval(() => refreshHeatmap(), 5000);
+                
+                // 初始化驾车服务
+                drivingService = new AMapInstance.Driving({ 
+                    map: map,
+                    policy: AMapInstance.DrivingPolicy.LEAST_TIME, // 添加路线策略：最少时间
+                    showTraffic: true // 显示实时路况
+                    
+                });
             }).catch(e => {
                 console.error("地图加载失败:", e);
             });
@@ -195,7 +206,7 @@
             } else {
                 queryGroup.classList.remove('active');
                 // 恢复实时刷新（原有代码修改）
-                refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
+                refreshInterval = setInterval(() => refreshHeatmap(), 5000);
                 heatmap.setDataSet({data: generateHeatmapData(), max: 100});
                 routeGroup.classList.remove('active');
             }
@@ -399,15 +410,9 @@
                     }).open(map, marker.getPosition());
                 });
             });
-            
-            // 初始化驾车服务
-                drivingService = new AMapInstance.Driving({ 
-                    map: map,
-                    policy: AMapInstance.DrivingPolicy.LEAST_TIME, // 添加路线策略：最少时间
-                    showTraffic: true // 显示实时路况
-                });
-            });
-        }
+        
+            }
+        
 
         // 生成天气信息
         function generateWeather() {
@@ -474,7 +479,7 @@
             }));
         }
 
-        function refreshHeatmap(AMap) {
+        function refreshHeatmap() {
             // 生成新的热力图数据
             const newData = generateHeatmapData();
             
@@ -494,6 +499,7 @@
           return new Promise((resolve, reject) => {
             if (!AMapInstance) {
               reject('地图未初始化');
+              const geo = new AMapInstance.Geolocation();
               return;
             }
               
