@@ -114,6 +114,10 @@
                 </select>
             </div>
             <button onclick="executeRoute()">开始规划</button>
+            <div class="query-item" id="smsSection" style="display: none">
+              <input type="text" id="phoneNumber" placeholder="输入手机号" maxlength="11" pattern="\\d*">
+              <button onclick="simulateSmsSend()">确认发送</button>
+            </div>
         </div>
         
         <div id="queryConditions" class="query-group">
@@ -582,6 +586,7 @@
                     map.setFitView([polyline], { padding: [100, 100, 100, 100] });
                     console.log('路线规划成功', path);
                     resolve();
+                    document.getElementById("smsSection").style.display = "block";
                   } else {
                     reject('未找到可行路线');
                   }
@@ -596,5 +601,53 @@
           }
         }
     </script>
+    function simulateSmsSend() {
+    const phone = document.getElementById('phoneNumber').value.trim();
+    if (!/^\d{11}$/.test(phone)) {
+        alert('请输入有效的11位手机号');
+        return;
+    }
+
+    const destName = document.getElementById('routeSelect').value;
+    const dest = allLocations.find(l => l.name === destName);
+    if (!dest) return alert("目标地无效");
+
+    const weather = generateWeather();
+    const playTime = generatePlayTime();
+
+    const message = `
+        <div style="line-height:1.8;font-size:14px;padding:10px">
+            <strong>收件人：</strong>${phone}<br>
+            <strong>出发地：</strong>${lastUserPos.address || '人民广场'}<br>
+            <strong>目的地：</strong>${dest.name}<br>
+            <strong>天气：</strong>${weather.icon} ${weather.text}（${weather.temp}℃）<br>
+            <strong>建议游玩时间：</strong>${playTime}<br>
+            <strong>提示：</strong>热力图数据已更新，请避开高密度区域。
+        </div>
+    `;
+
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '50%';
+    modal.style.left = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.background = '#fff';
+    modal.style.border = '1px solid #ccc';
+    modal.style.borderRadius = '8px';
+    modal.style.boxShadow = '0 4px 10px rgba(0,0,0,0.2)';
+    modal.style.zIndex = 9999;
+    modal.innerHTML = `
+        <div style="padding: 16px; max-width: 320px;">
+            <h3 style="margin-top:0">短信内容预览</h3>
+            ${message}
+            <div style="text-align:right;margin-top:12px">
+                <button onclick="this.parentNode.parentNode.remove()">关闭</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+</script>
+
 </body>
 </html>
