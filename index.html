@@ -510,9 +510,10 @@
         // 发送短信内容
         function sendSmsContent() {
         const phone = document.getElementById('smsPhone').value.trim();
-        if (!/^1[3-9]\\d{9}$/.test(phone)) {
-        alert('请输入有效的手机号');
-        return;
+        console.log('手机号输入内容：', phone); // 调试用
+        if (!/^1[3-9]\d{9}$/.test(phone)) {
+            alert('请输入有效的手机号');
+            return;
         }
         // 生成短信内容
         let smsText = `【出行助手】\\n`;
