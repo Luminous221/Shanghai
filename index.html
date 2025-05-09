@@ -554,37 +554,35 @@
             // 强制清除旧路线
             map.remove(map.getAllOverlays('polyline'));
         
-            const start = `${userPos.lng},${userPos.lat}`;
-            const end = `${dest.lng},${dest.lat}`;
-            const webServiceKey = "183aed84d84d763f8d2d1c770b622153"; // 替换为Web服务Key
+            const start = [Number(userPos.lng), Number(userPos.lat)];
+            const end = [Number(dest.lng), Number(dest.lat)];
         
-            // 调用高德Web服务API
-            const response = await fetch(
-              `https://restapi.amap.com/v3/direction/driving?origin=${start}&destination=${end}&key=${webServiceKey}`
-            );
-            const data = await response.json();
-        
-            if (data.status === '1' && data.route && data.route.paths.length > 0) {
-              const path = data.route.paths[0].steps.flatMap(step => {
-                return step.polyline.split(';').map(point => {
-                  const [lng, lat] = point.split(',');
-                  return [parseFloat(lng), parseFloat(lat)];
-                });
-              }).flat();
-        
-              // 绘制新路线
-              new AMapInstance.Polyline({
-                path: path,
-                strokeColor: "#1890ff",
-                strokeWeight: 6,
-                map: map
+            // 使用 AMap.Driving 进行路径规划
+            await new Promise((resolve, reject) => {
+              drivingService.search(start, end, (status, result) => {
+                if (status === 'complete') {
+                  if (result.routes && result.routes.length > 0) {
+                    const path = result.routes[0].steps.flatMap(step => step.path);
+                    
+                    // 绘制新路线
+                    new AMapInstance.Polyline({
+                      path: path,
+                      strokeColor: "#1890ff",
+                      strokeWeight: 6,
+                      map: map
+                    });
+                    
+                    // 调整地图视野（使用高德API自动计算的范围）
+                    map.setFitView([start, end], { padding: [100, 100, 100, 100] });
+                    resolve();
+                  } else {
+                    reject('未找到可行路线');
+                  }
+                } else {
+                  reject(`路线规划失败：${result.info}`);
+                }
               });
-        
-              // 调整地图视野
-              map.setFitView([path[0], path[path.length - 1]], { padding: [100, 100, 100, 100] });
-            } else {
-              alert(`路线规划失败：${data.info}`);
-            }
+            });
         
           } catch (err) {
             alert(typeof err === 'string' ? err : `错误：${err.message}`);
