@@ -603,7 +603,7 @@
             });
         
             // 强制清除旧路线
-            map.remove(map.getAllOverlays('polyline'));
+            map.getAllOverlays('polyline').forEach(polyline => map.remove(polyline));
         
             const start = [Number(userPos.lng), Number(userPos.lat)];
             const end = [Number(dest.lng), Number(dest.lat)];
