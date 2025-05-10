@@ -580,7 +580,6 @@
             alert('请先选择一个目的地');
             return;
           }
-        
           const dest = allLocations.find(l => l.name === destName);
           if (!dest) {
             alert('目的地未找到，请重试');
@@ -588,63 +587,45 @@
           }
         
           try {
+            // 获取用户位置或默认起点
             const userPos = await getUserLocation().catch(async (err) => {
               console.warn(err);
-              const confirmUseDefault = confirm('定位失败，是否使用默认起点（人民广场）？');
-              if (confirmUseDefault) {
-                return { 
-                  lng: 121.4761, 
-                  lat: 31.2328,
-                  address: "人民广场"
-                };
+              const useDefault = confirm('定位失败，是否使用默认起点（人民广场）？');
+              return useDefault ? 
+                { lng: 121.4761, lat: 31.2328 } : 
+                Promise.reject('用户取消');
+            });
+        
+            // 清除所有旧路线
+            const polylines = map.getAllOverlays('polyline');
+            polylines.forEach(polyline => map.remove(polyline));
+        
+            // 确保坐标格式正确
+            const start = [parseFloat(userPos.lng), parseFloat(userPos.lat)];
+            const end = [parseFloat(dest.lng), parseFloat(dest.lat)];
+            console.log('规划路线：', { start, end });
+        
+            // 调用路线规划服务
+            drivingService.search(start, end, (status, result) => {
+              if (status === 'complete') {
+                if (result.routes?.length > 0) {
+                  const path = result.routes[0].steps.flatMap(step => step.path);
+                  new AMapInstance.Polyline({
+                    path: path,
+                    strokeColor: "#1890ff",
+                    strokeWeight: 6,
+                    map: map
+                  });
+                  map.setFitView([start, end], { padding: [100, 100, 100, 100] });
+                } else {
+                  alert('未找到可行路线');
+                }
               } else {
-                throw new Error('用户取消');
+                alert(`路线规划失败：${result?.info || '服务异常'}`);
               }
             });
-        
-            // 强制清除旧路线
-            map.getAllOverlays('polyline').forEach(polyline => map.remove(polyline));
-        
-            const start = [Number(userPos.lng), Number(userPos.lat)];
-            const end = [Number(dest.lng), Number(dest.lat)];
-        
-            // 使用 AMap.Driving 进行路径规划
-            await new Promise((resolve, reject) => {
-              drivingService.search(start, end, (status, result) => {
-                if (status === 'complete') {
-                  if (result.routes && result.routes.length > 0) {
-
-                      
-                    const path = result.routes[0].steps.flatMap(step => step.path);
-                    
-                    // 绘制新路线
-                    new AMapInstance.Polyline({
-                      path: path,
-                      strokeColor: "#1890ff",
-                      strokeWeight: 6,
-                      map: map
-                    });
-                    
-                    // 调整地图视野（使用高德API自动计算的范围）
-                    map.setFitView([start, end], { padding: [100, 100, 100, 100] });
-                    lastRouteInfo = {
-                        startName: userPos.address || '起点',
-                        destName: dest.name,
-                        distance: result.routes[0].distance ? (result.routes[0].distance/1000).toFixed(2) + '公里' : '',
-                        duration: result.routes[0].time ? Math.round(result.routes[0].time/60) + '分钟' : ''
-                    };
-                    resolve();
-                  } else {
-                    reject('未找到可行路线');
-                  }
-                } else {
-                  reject(`路线规划失败：${result.info}`);
-                }
-              });
-            });
-        
           } catch (err) {
-            alert(typeof err === 'string' ? err : `错误：${err.message}`);
+            alert(typeof err === 'string' ? err : '错误：' + err.message);
           }
         }
     </script>
