@@ -258,7 +258,7 @@
             });
         }
 
-        function initMarkers(AMap) {
+        async function initMarkers(AMap) {
             const icons = {
                 '地标景点': 'https://cdn-icons-png.flaticon.com/128/18499/18499155.png',
                 '商业休闲': 'https://cdn-icons-png.flaticon.com/128/11030/11030893.png',
@@ -401,12 +401,15 @@
                     }).open(map, marker.getPosition());
                 });
             });
-            // 初始化驾车服务
-            AMap.plugin('AMap.Driving', function(){
-                drivingService = new AMap.Driving({ 
-                    map: map,
-                    policy: AMap.DrivingPolicy.LEAST_TIME, // 添加路线策略：最少时间
-                    showTraffic: true // 显示实时路况
+            // 初始化驾车服务（改为Promise）
+            await new Promise((resolve) => {
+                AMap.plugin('AMap.Driving', function() {
+                    drivingService = new AMap.Driving({
+                        map: map,
+                        policy: AMap.DrivingPolicy.LEAST_TIME,
+                        showTraffic: true
+                    });
+                    resolve();
                 });
             });
         }
@@ -592,7 +595,7 @@
               console.warn(err);
               const useDefault = confirm('定位失败，是否使用默认起点（人民广场）？');
               return useDefault ? 
-                { lng: 121.4761, lat: 31.2328 } : 
+                { lng: 121.4761, lat: 31.2328, address: "人民广场" } : 
                 Promise.reject('用户取消');
             });
         
@@ -621,7 +624,8 @@
                   alert('未找到可行路线');
                 }
               } else {
-                alert(`路线规划失败：${result?.info || '服务异常'}`);
+                console.error('路线规划失败详情：', result);
+                alert(`错误代码：${result.info}，请检查参数或网络`);
               }
             });
           } catch (err) {
