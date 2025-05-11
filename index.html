@@ -5,15 +5,6 @@
     <title>上海景点热力图与分类标记</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- 高德地图API -->
-    <style>
-        #map { width: 100%; height: 100vh; }
-        #panel {
-        z-index: 1000;        /* 确保面板在最上层 */
-        max-height: 80vh;     /* 限制高度 */
-        overflow-y: auto;     /* 支持滚动 */
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1); /* 可选阴影 */
-        }
-    </style>
     <script src="https://webapi.amap.com/loader.js"></script>
     <style>
         html, body, #map {
@@ -55,141 +46,26 @@
             color: #1890ff;
             font-weight: bold;
         }
-        
-        /* 新增控制栏样式 */
-        #controlBar {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 999;
-            background: rgba(255,255,255,0.9);
-            padding: 12px;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        }
-        .mode-switch {
-            margin-bottom: 10px;
-        }
-        .query-group {
-            display: none; /* 默认隐藏查询条件 */
-            margin-top: 8px;
-        }
-        .query-group.active {
-            display: block;
-        }
-        .query-item {
-            margin: 6px 0;
-        }
-        select, button {
-            padding: 6px;
-            margin: 2px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        /* 路线规划提示样式 */
-        .amap-driving-route-marker {
-          background: #1890ff;
-          color: white;
-          padding: 4px 8px;
-          border-radius: 4px;
-        }
-        
-        /* 实时路况样式 */
-        .amap-layers path[stroke="#4dc1a9"] {
-          stroke: #52c41a !important; /* 畅通-绿色 */
-        }
-        .amap-layers path[stroke="#f9c51a"] {
-          stroke: #faad14 !important; /* 缓行-橙色 */
-        }
-        .amap-layers path[stroke="#e95f5f"] {
-          stroke: #f5222d !important; /* 拥堵-红色 */
-        }
-        
     </style>
 </head>
 <body>
-    <div id="controlBar">
-        <div class="mode-switch">
-            <button onclick="switchMode('realtime')">实时模式</button>
-            <button onclick="switchMode('query')">查询模式</button>
-            <button onclick="switchMode('route')">路线规划</button>
-            <button onclick="showSmsDialog()">短信模拟</button> 
-        </div>
-        
-        <!-- 路线规划条件 -->
-        <div id="routeConditions" class="query-group">
-            <div class="query-item">
-                <select id="routeSelect">
-                    <option value="">请选择目的地</option>
-                    <!-- 路线规划模式激活时填充 -->
-                </select>
-            </div>
-            <button onclick="executeRoute()">开始规划</button>
-        </div>
-        
-        <div id="queryConditions" class="query-group">
-            <div class="query-item">
-                <input type="date" id="queryDate" placeholder="选择日期">
-            </div>
-            <div class="query-item">
-                <select id="timeRange">
-                    <option value="8-10">8:00-10:00</option>
-                    <option value="10-12">10:00-12:00</option>
-                    <option value="12-14">12:00-14:00</option>
-                    <option value="14-16">14:00-16:00</option>
-                    <option value="16-18">16:00-18:00</option>
-                </select>
-            </div>
-            <div class="query-item">
-                <select id="tagSelect">
-                    <option value="全部">全部类型</option>
-                    <option value="地标景点">地标景点</option>
-                    <option value="商业休闲">商业休闲</option>
-                    <option value="文化历史">文化历史</option>
-                    <option value="公共空间">公共空间</option>
-                </select>
-            </div>
-            <button onclick="executeQuery()">查询</button>
-        </div>
-    </div>
-
     <div id="map"></div>
-    <!-- 新增路线规划结果面板（与官方示例一致） -->
-    <div id="panel" style="position: fixed; right: 10px; top: 10px; width: 300px; background: white; padding: 10px;"></div>
-    
     <script>
         // 全局变量存储地图和热力图实例
         let map, heatmap;
         
-        // 新增全局变量
-        let currentMode = 'realtime'; // 当前模式
-        let refreshInterval; // 存储定时器
-        // 新增全局变量存储AMap实例
-        let AMapInstance;
-        let allLocations;
-        let drivingService;
-        
         function initMap() {
             AMapLoader.load({
-                key: "8ba0c9149f5807a5aa8d60915f94aa7f",
+                key: "ad2454f78dd488ab4ebe4fbf69f840fc",
                 version: "2.0",
-                plugins: ['AMap.HeatMap', 'AMap.Marker', 'AMap.Driving']
+                plugins: ['AMap.HeatMap', 'AMap.Marker']
             }).then((AMap) => {
-                AMapInstance = AMap; // 存储AMap实例
                 map = new AMap.Map('map', {
                     viewMode: '2D',
                     center: [121.4737, 31.2304],
                     zoom: 12
                 });
 
-                // 初始化路线规划服务（关键修改：直接使用官方示例的Driving类）
-                drivingService = new AMap.Driving({
-                    map: map,
-                    panel: "panel", // 绑定结果面板
-                    policy: AMap.DrivingPolicy.LEAST_TIME,
-                    showTraffic: true
-                });
-                
                 // 初始化热力图
                 initHeatmap(AMap);
                 
@@ -197,63 +73,13 @@
                 initMarkers(AMap);
                 
                 // 启动定时刷新
-                // 修改定时器存储方式（原有代码修改）
-                refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
+                setInterval(() => refreshHeatmap(AMap), 5000);
 
             }).catch(e => {
                 console.error("地图加载失败:", e);
             });
         }
 
-         // 新增模式切换函数
-        function switchMode(mode) {
-            currentMode = mode;
-            const queryGroup = document.getElementById('queryConditions');
-            const routeGroup = document.getElementById('routeConditions');
-            if (mode === 'query') {
-                queryGroup.classList.add('active');
-                routeGroup.classList.remove('active');
-                clearInterval(refreshInterval); // 停止实时刷新
-            } else {
-                queryGroup.classList.remove('active');
-                // 恢复实时刷新（原有代码修改）
-                refreshInterval = setInterval(() => refreshHeatmap(AMap), 5000);
-                heatmap.setDataSet({data: generateHeatmapData(), max: 100});
-                routeGroup.classList.remove('active');
-            }
-            if (mode === 'route') {
-                // 关闭热力图刷新
-                clearInterval(refreshInterval);
-                queryGroup.classList.remove('active');
-                routeGroup.classList.add('active');
-                // 填充目的地下拉
-                const sel = document.getElementById('routeSelect');
-                sel.innerHTML = '<option value="">请选择目的地</option>';
-                allLocations.forEach(loc => {
-                    sel.innerHTML += `<option value="${loc.name}">${loc.name}</option>`;
-                });
-            }
-        }
-
-        // 新增查询执行函数
-        function executeQuery() {
-            const selectedType = document.getElementById('tagSelect').value;
-            // 基于全局 allLocations 过滤并生成一次性热力图数据
-            const queryData = allLocations
-                .filter(loc => selectedType === '全部' || loc.type === selectedType)
-                .map(loc => ({
-                    lng: loc.lng,
-                    lat: loc.lat,
-                    count: Math.min(100, Math.floor(Math.random() * 120))
-                }));
-
-            // 切换（重新渲染）热力图
-            heatmap.setDataSet({
-                data: queryData,
-                max: 100
-            });
-        }
-        
         function initHeatmap(AMap) {
             // 热力图数据
             const heatmapData = generateHeatmapData();
@@ -278,7 +104,7 @@
             });
         }
 
-        async function initMarkers(AMap) {
+        function initMarkers(AMap) {
             const icons = {
                 '地标景点': 'https://cdn-icons-png.flaticon.com/128/18499/18499155.png',
                 '商业休闲': 'https://cdn-icons-png.flaticon.com/128/11030/11030893.png',
@@ -378,10 +204,7 @@
                  photo: "https://ts1.tc.mm.bing.net/th/id/R-C.fe740385720f1b4dfc72fec4ea943da3?rik=RjOgOX7%2fLwV0Xg&riu=http%3a%2f%2fyouimg1.c-ctrip.com%2ftarget%2ffd%2ftg%2fg6%2fM06%2f3D%2f88%2fCggYslbjwFqAUCeMAAQ3t2hE4rQ601.jpg&ehk=gYiU08pFaf%2f3xp53aJhUPA4%2fAxAoFW%2bwVkVWmKvWZgI%3d&risl=&pid=ImgRaw&r=0",
                  desc: "明代科学家徐光启墓园改建的城市公园，欧洲几何园林与中式碑廊相映，融合科学精神与古典美学的市民休憩地。"}
             ];
-            
-            // 保存到全局，供查询时使用
-            allLocations = locations;
-            
+
             locations.forEach(loc => {
                 const iconUrl = icons[loc.type] || icons["地标景点"];
                 const content = `<div class="custom-marker" style="background-image: url('${iconUrl}')"></div>`;
@@ -419,17 +242,6 @@
                         offset: new AMap.Pixel(0, -40),
                         closeWhenClickMap: true
                     }).open(map, marker.getPosition());
-                });
-            });
-            // 初始化驾车服务（改为Promise）
-            await new Promise((resolve) => {
-                AMap.plugin('AMap.Driving', function() {
-                    drivingService = new AMap.Driving({
-                        map: map,
-                        policy: AMap.DrivingPolicy.LEAST_TIME,
-                        showTraffic: true
-                    });
-                    resolve();
                 });
             });
         }
@@ -514,133 +326,6 @@
 
         // 初始化地图
         initMap();
-
-        // 记录最近一次路线信息
-        let lastRouteInfo = null;
-
-        // 显示手机号输入弹窗
-        function showSmsDialog() {
-        document.getElementById('smsDialog').style.display = 'flex';
-        document.getElementById('smsPhone').value = '';
-        }
-        function closeSmsDialog() {
-        document.getElementById('smsDialog').style.display = 'none';
-        }
-        function closeSmsContentDialog() {
-        document.getElementById('smsContentDialog').style.display = 'none';
-        }
-
-        // 发送短信内容
-        function sendSmsContent() {
-        const phone = document.getElementById('smsPhone').value.trim();
-        console.log('手机号输入内容：', phone); // 调试用
-        if (!/^1[3-9]\d{9}$/.test(phone)) {
-            alert('请输入有效的手机号');
-            return;
-        }
-        // 生成短信内容
-        let smsText = `【出行助手】\\n`;
-        if (lastRouteInfo) {
-        smsText += `目的地：${lastRouteInfo.destName}\\n`;
-        smsText += `起点：${lastRouteInfo.startName}\\n`;
-        smsText += `预计距离：${lastRouteInfo.distance || '未知'}\\n`;
-        smsText += `预计用时：${lastRouteInfo.duration || '未知'}\\n`;
-        } else {
-        smsText += `暂无路线规划信息，请先进行一次路线规划。\\n`;
-        }
-        // 获取当前热力图数据
-        let heatData = (heatmap && heatmap._data && Array.isArray(heatmap._data.data)) ? heatmap._data.data : [];
-        if (heatData.length > 0) {
-        smsText += `\\n【当前热力图】\\n`;
-        heatData.slice(0, 10).forEach((item, idx) => {
-        smsText += `景点${idx+1}：${item.lng.toFixed(4)},${item.lat.toFixed(4)} 热力值：${item.count}\\n`;
-        });
-        if (heatData.length > 10) smsText += `...\\n`;
-        } else {
-        smsText += `\\n暂无热力图数据。\\n`;
-        }
-        document.getElementById('smsContentText').innerText = smsText;
-        document.getElementById('smsDialog').style.display = 'none';
-        document.getElementById('smsContentDialog').style.display = 'flex';
-        }
-        
-        async function executeRoute() {
-            
-            if (!drivingService) {
-            alert("路线规划服务未初始化，请稍后再试");
-            return;
-        }
-            
-            const destName = document.getElementById('routeSelect').value;
-            if (!destName) {
-                alert('请先选择一个目的地');
-                return;
-            }
-        
-            const dest = allLocations.find(l => l.name === destName);
-            if (!dest) {
-                alert('目的地未找到，请重试');
-                return;
-            }
-        
-            try {
-                // 固定起点：上海南站地铁站（新增）
-                const start = [121.4304, 31.1534]; // 上海南站坐标
-        
-                // 清除旧路线（原有逻辑保留）
-                map.getAllOverlays('polyline').forEach(p => map.remove(p));
-        
-                // 调用路线规划服务（修改终点坐标为数值类型）
-                const end = [Number(dest.lng), Number(dest.lat)]; // 确保终点为数值
-                drivingService.search(
-                    start, // 起点坐标（上海南站）
-                    end,   // 终点坐标
-                    (status, result) => {
-                        if (status === 'complete') {
-                            // 清除旧路线
-                            map.remove(map.getAllOverlays('polyline'));
-                
-                            // 绘制新路线（关键新增代码）
-                            const path = result.routes[0].steps.flatMap(step => step.path);
-                            new AMap.Polyline({
-                                path: path,           // 路线坐标点数组
-                                strokeColor: "#1890ff", // 路线颜色
-                                strokeWeight: 6,      // 路线宽度
-                                map: map              // 绑定到地图
-                            });
-                
-                            // 自动调整地图视野（可选）
-                            map.setFitView([start, end], { padding: [100, 100, 100, 100] });
-                
-                            console.log('路线规划成功，已绘制路径');
-                        } else {
-                            console.error('路线规划失败:', result);
-                            alert(`错误：${result.info}`);
-                        }
-                    }
-                );
-            } catch (err) {
-                alert('路线规划异常');
-            }
-        }
     </script>
-    <!-- 手机号输入弹窗 -->
-    <div id="smsDialog" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:2000;align-items:center;justify-content:center;">
-    <div style="background:#fff;padding:24px 32px;border-radius:10px;min-width:320px;box-shadow:0 4px 16px rgba(0,0,0,0.15);position:relative;">
-    <div style="font-size:18px;font-weight:bold;margin-bottom:16px;">模拟短信发送</div>
-    <input id="smsPhone" type="text" placeholder="请输入手机号" style="width:200px;padding:8px;font-size:16px;border:1px solid #ddd;border-radius:4px;">
-    <button onclick="sendSmsContent()" style="margin-left:12px;padding:8px 16px;font-size:16px;">确认发送</button>
-    <button onclick="closeSmsDialog()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;">×</button>
-    </div>
-    </div>
-    <!-- 短信内容弹窗 -->
-    <div id="smsContentDialog" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:2100;align-items:center;justify-content:center;">
-    <div style="background:#fff;padding:24px 32px;border-radius:10px;min-width:320px;max-width:90vw;box-shadow:0 4px 16px rgba(0,0,0,0.15);position:relative;">
-    <div style="font-size:18px;font-weight:bold;margin-bottom:16px;">短信内容</div>
-    <div id="smsContentText" style="white-space:pre-wrap;font-size:15px;line-height:1.7;"></div>
-    <button onclick="closeSmsContentDialog()" style="margin-top:18px;padding:8px 16px;font-size:16px;">关闭</button>
-    <button onclick="closeSmsContentDialog()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;">×</button>
-    </div>
-    </div>
 </body>
 </html>
