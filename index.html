@@ -5,6 +5,18 @@
     <title>上海景点热力图与分类标记</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- 高德地图API -->
+    <style>
+        #map { width: 100%; height: 100vh; }
+        #panel { 
+            position: fixed; 
+            right: 10px; 
+            top: 10px; 
+            width: 300px; 
+            background: white; 
+            padding: 10px; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+    </style>
     <script src="https://webapi.amap.com/loader.js"></script>
     <style>
         html, body, #map {
@@ -164,7 +176,7 @@
             AMapLoader.load({
                 key: "8ba0c9149f5807a5aa8d60915f94aa7f",
                 version: "2.0",
-                plugins: ['AMap.HeatMap', 'AMap.Marker', 'AMap.Geolocation', 'AMap.Driving']
+                plugins: ['AMap.HeatMap', 'AMap.Marker', 'AMap.Driving']
             }).then((AMap) => {
                 AMapInstance = AMap; // 存储AMap实例
                 map = new AMap.Map('map', {
@@ -555,91 +567,45 @@
         document.getElementById('smsContentDialog').style.display = 'flex';
         }
         
-        function getUserLocation() {
-          return new Promise((resolve, reject) => {
-            if (!AMapInstance) {
-              reject('地图未初始化');
-              return;
-            }
-              
-            AMapInstance.plugin('AMap.Geolocation', function() {
-              const geo = new AMapInstance.Geolocation({
-                enableHighAccuracy: true,
-                timeout: 15000,
-                showButton: false
-              });
-
-                // 添加事件监听器
-            geo.on('complete', (result) => {
-                resolve({
-                  lng: result.position.lng,
-                  lat: result.position.lat,
-                  address: result.formattedAddress || "未知位置"
-                });
-              });
-        
-              geo.on('error', (err) => {
-                reject(`定位失败：${err.message}`);
-              });
-
-                
-              geo.getCurrentPosition();
-            });
-          });
-        }
-        
         async function executeRoute() {
-          const destName = document.getElementById('routeSelect').value;
-          if (!destName) {
-            alert('请先选择一个目的地');
-            return;
-          }
-          const dest = allLocations.find(l => l.name === destName);
-          if (!dest) {
-            alert('目的地未找到，请重试');
-            return;
-          }
-        
-          try {
-            // 获取用户位置或默认起点
-            const userPos = await getUserLocation().catch(async (err) => {
-              console.warn(err);
-              const useDefault = confirm('定位失败，是否使用默认起点（人民广场）？');
-              return useDefault ? 
-                { lng: 121.4761, lat: 31.2328, address: "人民广场" } : 
-                Promise.reject('用户取消');
-            });
-        
-            // 清除旧路线
-            map.remove(map.getAllOverlays('polyline'));
-        
-            // 调用路线规划服务
-            drivingService.search(
-                [userPos.lng, userPos.lat], // 起点坐标
-                [dest.lng, dest.lat]
-                , (status, result) => {
-                  if (status === 'complete') {
-                    if (result.routes?.length > 0) {
-                      const path = result.routes[0].steps.flatMap(step => step.path);
-                      new AMapInstance.Polyline({
-                        path: path,
-                        strokeColor: "#1890ff",
-                        strokeWeight: 6,
-                        map: map
-                      });
-                      map.setFitView([start, end], { padding: [100, 100, 100, 100] });
-                    } else {
-                      alert('未找到可行路线');
-                    }
-                  } else {
-                    console.error('路线规划失败详情：', result);
-                    alert(`错误代码：${result.info}，请检查参数或网络`);
-                  }
-                });
-              } catch (err) {
-                alert(typeof err === 'string' ? err : '错误：' + err.message);
-              }
+            const destName = document.getElementById('routeSelect').value;
+            if (!destName) {
+                alert('请先选择一个目的地');
+                return;
             }
+        
+            const dest = allLocations.find(l => l.name === destName);
+            if (!dest) {
+                alert('目的地未找到，请重试');
+                return;
+            }
+        
+            try {
+                // 固定起点：上海南站地铁站（新增）
+                const start = [121.4304, 31.1534]; // 上海南站坐标
+        
+                // 清除旧路线（原有逻辑保留）
+                map.getAllOverlays('polyline').forEach(p => map.remove(p));
+        
+                // 调用路线规划服务（修改终点坐标为数值类型）
+                const end = [Number(dest.lng), Number(dest.lat)]; // 确保终点为数值
+                drivingService.search(
+                    start, // 固定起点
+                    end,
+                    (status, result) => {
+                        if (status === 'complete') {
+                            console.log('路线规划完成');
+                            // 可选：生成导航链接
+                            const routeUrl = `https://uri.amap.com/navigation?from=${start.join(',')}&to=${end.join(',')}&mode=car`;
+                        } else {
+                            console.error('规划失败:', result);
+                        }
+                    }
+                );
+            } catch (err) {
+                alert('路线规划异常');
+            }
+        }
     </script>
     <!-- 手机号输入弹窗 -->
     <div id="smsDialog" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:2000;align-items:center;justify-content:center;">
