@@ -7,6 +7,12 @@
     <!-- 高德地图API -->
     <style>
         #map { width: 100%; height: 100vh; }
+        #panel {
+        z-index: 1000;        /* 确保面板在最上层 */
+        max-height: 80vh;     /* 限制高度 */
+        overflow-y: auto;     /* 支持滚动 */
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1); /* 可选阴影 */
+        }
     </style>
     <script src="https://webapi.amap.com/loader.js"></script>
     <style>
@@ -89,6 +95,7 @@
             <button onclick="switchMode('realtime')">实时模式</button>
             <button onclick="switchMode('query')">查询模式</button>
         </div>
+    
         
         <div id="queryConditions" class="query-group">
             <div class="query-item">
@@ -117,7 +124,7 @@
     </div>
 
     <div id="map"></div>
-
+    
     
     <script>
         // 全局变量存储地图和热力图实例
@@ -144,13 +151,6 @@
                     zoom: 12
                 });
 
-                // 初始化路线规划服务（关键修改：直接使用官方示例的Driving类）
-                drivingService = new AMap.Driving({
-                    map: map,
-                    panel: "panel", // 绑定结果面板
-                    policy: AMap.DrivingPolicy.LEAST_TIME,
-                    showTraffic: true
-                });
                 
                 // 初始化热力图
                 initHeatmap(AMap);
@@ -383,6 +383,7 @@
                     }).open(map, marker.getPosition());
                 });
             });
+           
         }
 
         // 生成天气信息
@@ -465,6 +466,8 @@
 
         // 初始化地图
         initMap();
-        
+ 
+    </script>
+
 </body>
 </html>
