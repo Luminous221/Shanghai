@@ -7,14 +7,11 @@
     <!-- 高德地图API -->
     <style>
         #map { width: 100%; height: 100vh; }
-        #panel { 
-            position: fixed; 
-            right: 10px; 
-            top: 10px; 
-            width: 300px; 
-            background: white; 
-            padding: 10px; 
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        #panel {
+        z-index: 1000;        /* 确保面板在最上层 */
+        max-height: 80vh;     /* 限制高度 */
+        overflow-y: auto;     /* 支持滚动 */
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1); /* 可选阴影 */
         }
     </style>
     <script src="https://webapi.amap.com/loader.js"></script>
@@ -158,7 +155,7 @@
 
     <div id="map"></div>
     <!-- 新增路线规划结果面板（与官方示例一致） -->
-    <div id="panel"></div>
+    <div id="panel" style="position: fixed; right: 10px; top: 10px; width: 300px; background: white; padding: 10px;"></div>
     
     <script>
         // 全局变量存储地图和热力图实例
@@ -568,6 +565,12 @@
         }
         
         async function executeRoute() {
+            
+            if (!drivingService) {
+            alert("路线规划服务未初始化，请稍后再试");
+            return;
+        }
+            
             const destName = document.getElementById('routeSelect').value;
             if (!destName) {
                 alert('请先选择一个目的地');
@@ -590,15 +593,29 @@
                 // 调用路线规划服务（修改终点坐标为数值类型）
                 const end = [Number(dest.lng), Number(dest.lat)]; // 确保终点为数值
                 drivingService.search(
-                    start, // 固定起点
-                    end,
+                    start, // 起点坐标（上海南站）
+                    end,   // 终点坐标
                     (status, result) => {
                         if (status === 'complete') {
-                            console.log('路线规划完成');
-                            // 可选：生成导航链接
-                            const routeUrl = `https://uri.amap.com/navigation?from=${start.join(',')}&to=${end.join(',')}&mode=car`;
+                            // 清除旧路线
+                            map.remove(map.getAllOverlays('polyline'));
+                
+                            // 绘制新路线（关键新增代码）
+                            const path = result.routes[0].steps.flatMap(step => step.path);
+                            new AMap.Polyline({
+                                path: path,           // 路线坐标点数组
+                                strokeColor: "#1890ff", // 路线颜色
+                                strokeWeight: 6,      // 路线宽度
+                                map: map              // 绑定到地图
+                            });
+                
+                            // 自动调整地图视野（可选）
+                            map.setFitView([start, end], { padding: [100, 100, 100, 100] });
+                
+                            console.log('路线规划成功，已绘制路径');
                         } else {
-                            console.error('规划失败:', result);
+                            console.error('路线规划失败:', result);
+                            alert(`错误：${result.info}`);
                         }
                     }
                 );
