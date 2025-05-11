@@ -86,7 +86,6 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
-        
         /* 路线规划提示样式 */
         .amap-driving-route-marker {
           background: #1890ff;
@@ -95,27 +94,16 @@
           border-radius: 4px;
         }
         
-        #routeList {
-            position: fixed;
-            right: 10px;
-            top: 10px;
-            width: 300px;
-            background: white;
-            padding: 10px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        /* 实时路况样式 */
+        .amap-layers path[stroke="#4dc1a9"] {
+          stroke: #52c41a !important; /* 畅通-绿色 */
         }
-        .route-item {
-            padding: 8px;
-            margin: 4px 0;
-            border: 1px solid #eee;
-            cursor: pointer;
+        .amap-layers path[stroke="#f9c51a"] {
+          stroke: #faad14 !important; /* 缓行-橙色 */
         }
-        .route-item:hover {
-            background: #f5f5f5;
+        .amap-layers path[stroke="#e95f5f"] {
+          stroke: #f5222d !important; /* 拥堵-红色 */
         }
-        
         
     </style>
 </head>
@@ -167,7 +155,7 @@
 
     <div id="map"></div>
     <!-- 新增路线规划结果面板（与官方示例一致） -->
-    <div id="routeList"></div>
+    <div id="panel" style="position: fixed; right: 10px; top: 10px; width: 300px; background: white; padding: 10px;"></div>
     
     <script>
         // 全局变量存储地图和热力图实例
@@ -179,13 +167,13 @@
         // 新增全局变量存储AMap实例
         let AMapInstance;
         let allLocations;
-        let transferService;
+        let drivingService;
         
         function initMap() {
             AMapLoader.load({
                 key: "8ba0c9149f5807a5aa8d60915f94aa7f",
                 version: "2.0",
-                plugins: ['AMap.HeatMap', 'AMap.Marker', 'AMap.Transfer']
+                plugins: ['AMap.HeatMap', 'AMap.Marker', 'AMap.Driving']
             }).then((AMap) => {
                 AMapInstance = AMap; // 存储AMap实例
                 map = new AMap.Map('map', {
@@ -194,13 +182,12 @@
                     zoom: 12
                 });
 
-                // 初始化公交路线规划服务（关键修改）
-                transferService = new AMap.Transfer({
+                // 初始化路线规划服务（关键修改：直接使用官方示例的Driving类）
+                drivingService = new AMap.Driving({
                     map: map,
-                    panel: "routeList", // 绑定到路线列表面板
-                    policy: AMap.TransferPolicy.LEAST_TIME, // 最少时间策略
-                    nightflag: true,     // 包含夜班车
-                    city: '上海'         // 限定城市
+                    panel: "panel", // 绑定结果面板
+                    policy: AMap.DrivingPolicy.LEAST_TIME,
+                    showTraffic: true
                 });
                 
                 // 初始化热力图
@@ -434,7 +421,17 @@
                     }).open(map, marker.getPosition());
                 });
             });
-            
+            // 初始化驾车服务（改为Promise）
+            await new Promise((resolve) => {
+                AMap.plugin('AMap.Driving', function() {
+                    drivingService = new AMap.Driving({
+                        map: map,
+                        policy: AMap.DrivingPolicy.LEAST_TIME,
+                        showTraffic: true
+                    });
+                    resolve();
+                });
+            });
         }
 
         // 生成天气信息
@@ -567,57 +564,65 @@
         document.getElementById('smsContentDialog').style.display = 'flex';
         }
         
-        // 执行公交路线规划（完全重写）
         async function executeRoute() {
+            
+            if (!drivingService) {
+            alert("路线规划服务未初始化，请稍后再试");
+            return;
+        }
+            
             const destName = document.getElementById('routeSelect').value;
             if (!destName) {
-                alert('请先选择目的地');
+                alert('请先选择一个目的地');
                 return;
             }
-
+        
             const dest = allLocations.find(l => l.name === destName);
             if (!dest) {
-                alert('目的地未找到');
+                alert('目的地未找到，请重试');
                 return;
             }
-
-            // 固定起点：上海南站地铁站
-            const start = [121.4304, 31.1534];
-            // 终点坐标
-            const end = [Number(dest.lng), Number(dest.lat)];
-
-            // 清除旧路线
-            map.remove(map.getAllOverlays('polyline'));
-
-            // 调用公交路线规划（关键修改）
-            transferService.search(
-                start,
-                end,
-                (status, result) => {
-                    if (status === 'complete') {
-                        // 为每条路线添加点击事件
-                        const routes = result.plans;
-                        routes.forEach((plan, index) => {
-                            const polyline = new AMap.Polyline({
-                                path: plan.path,
-                                strokeColor: index === 0 ? "#1890ff" : "#ddd",
-                                strokeWeight: 6,
-                                map: map
-                            });
-                            
-                            // 点击路线高亮显示
-                            polyline.on('click', () => {
-                                map.setFitView(polyline.getPath());
-                                document.getElementById(`route-${index}`).scrollIntoView();
-                            });
-                        });
-                    } else {
-                        alert(`规划失败：${result.info}`);
-                    }
-                }
-            );
-        }
         
+            try {
+                // 固定起点：上海南站地铁站（新增）
+                const start = [121.4304, 31.1534]; // 上海南站坐标
+        
+                // 清除旧路线（原有逻辑保留）
+                map.getAllOverlays('polyline').forEach(p => map.remove(p));
+        
+                // 调用路线规划服务（修改终点坐标为数值类型）
+                const end = [Number(dest.lng), Number(dest.lat)]; // 确保终点为数值
+                drivingService.search(
+                    start, // 起点坐标（上海南站）
+                    end,   // 终点坐标
+                    (status, result) => {
+                        if (status === 'complete') {
+                            // 清除旧路线
+                            map.remove(map.getAllOverlays('polyline'));
+                
+                            // 绘制新路线（关键新增代码）
+                            const path = result.routes[0].steps.flatMap(step => step.path);
+                            new AMap.Polyline({
+                                path: path,           // 路线坐标点数组
+                                strokeColor: "#1890ff", // 路线颜色
+                                strokeWeight: 6,      // 路线宽度
+                                map: map              // 绑定到地图
+                            });
+                
+                            // 自动调整地图视野（可选）
+                            map.setFitView([start, end], { padding: [100, 100, 100, 100] });
+                
+                            console.log('路线规划成功，已绘制路径');
+                        } else {
+                            console.error('路线规划失败:', result);
+                            alert(`错误：${result.info}`);
+                        }
+                    }
+                );
+            } catch (err) {
+                alert('路线规划异常');
+            }
+        }
     </script>
     <!-- 手机号输入弹窗 -->
     <div id="smsDialog" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:2000;align-items:center;justify-content:center;">
