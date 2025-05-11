@@ -145,6 +145,9 @@
     </div>
 
     <div id="map"></div>
+    <!-- 新增路线规划结果面板（与官方示例一致） -->
+    <div id="panel"></div>
+    
     <script>
         // 全局变量存储地图和热力图实例
         let map, heatmap;
@@ -170,6 +173,14 @@
                     zoom: 12
                 });
 
+                // 初始化路线规划服务（关键修改：直接使用官方示例的Driving类）
+                drivingService = new AMap.Driving({
+                    map: map,
+                    panel: "panel", // 绑定结果面板
+                    policy: AMap.DrivingPolicy.LEAST_TIME,
+                    showTraffic: true
+                });
+                
                 // 初始化热力图
                 initHeatmap(AMap);
                 
@@ -599,39 +610,36 @@
                 Promise.reject('用户取消');
             });
         
-            // 清除所有旧路线
-            const polylines = map.getAllOverlays('polyline');
-            polylines.forEach(polyline => map.remove(polyline));
-        
-            // 确保坐标格式正确
-            const start = [parseFloat(userPos.lng), parseFloat(userPos.lat)];
-            const end = [parseFloat(dest.lng), parseFloat(dest.lat)];
-            console.log('规划路线：', { start, end });
+            // 清除旧路线
+            map.remove(map.getAllOverlays('polyline'));
         
             // 调用路线规划服务
-            drivingService.search(start, end, (status, result) => {
-              if (status === 'complete') {
-                if (result.routes?.length > 0) {
-                  const path = result.routes[0].steps.flatMap(step => step.path);
-                  new AMapInstance.Polyline({
-                    path: path,
-                    strokeColor: "#1890ff",
-                    strokeWeight: 6,
-                    map: map
-                  });
-                  map.setFitView([start, end], { padding: [100, 100, 100, 100] });
-                } else {
-                  alert('未找到可行路线');
-                }
-              } else {
-                console.error('路线规划失败详情：', result);
-                alert(`错误代码：${result.info}，请检查参数或网络`);
+            drivingService.search(
+                [userPos.lng, userPos.lat], // 起点坐标
+                [dest.lng, dest.lat]
+                , (status, result) => {
+                  if (status === 'complete') {
+                    if (result.routes?.length > 0) {
+                      const path = result.routes[0].steps.flatMap(step => step.path);
+                      new AMapInstance.Polyline({
+                        path: path,
+                        strokeColor: "#1890ff",
+                        strokeWeight: 6,
+                        map: map
+                      });
+                      map.setFitView([start, end], { padding: [100, 100, 100, 100] });
+                    } else {
+                      alert('未找到可行路线');
+                    }
+                  } else {
+                    console.error('路线规划失败详情：', result);
+                    alert(`错误代码：${result.info}，请检查参数或网络`);
+                  }
+                });
+              } catch (err) {
+                alert(typeof err === 'string' ? err : '错误：' + err.message);
               }
-            });
-          } catch (err) {
-            alert(typeof err === 'string' ? err : '错误：' + err.message);
-          }
-        }
+            }
     </script>
     <!-- 手机号输入弹窗 -->
     <div id="smsDialog" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:2000;align-items:center;justify-content:center;">
